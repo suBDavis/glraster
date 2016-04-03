@@ -1,7 +1,11 @@
 #include <stdio.h>
+#include <GL/glew.h>
 #include <GL/glut.h>
+#include <GL/gl.h>
 #include <GL/glu.h>
+#include <GL/glext.h>
 #include <math.h>
+
 //For the obj loader
 #include <string.h>
 #include <string>
@@ -9,38 +13,75 @@
 #include <queue>
 #include <fstream>
 #include <float.h>
-    
-double user_theta  = 0;
-double user_height = 0;
- 
+
+float gTotalTimeElapsed = 0;
+int gTotalFrames = 0;
+GLuint gTimer;
+
 void load_mesh(std::string fileName);
+
+struct Vector3
+{
+	float x, y, z;
+};
+
+void init_timer()
+{
+    glGenQueries(1, &gTimer);
+}
+
+void start_timing()
+{
+    glBeginQuery(GL_TIME_ELAPSED, gTimer);
+}
+
+float stop_timing()
+{
+    glEndQuery(GL_TIME_ELAPSED);
+
+    GLint available = GL_FALSE;
+    while (available == GL_FALSE)
+        glGetQueryObjectiv(gTimer, GL_QUERY_RESULT_AVAILABLE, &available);
+
+    GLint result;
+    glGetQueryObjectiv(gTimer, GL_QUERY_RESULT, &result);
+
+    float timeElapsed = result / (1000.0f * 1000.0f * 1000.0f);
+    return timeElapsed;
+}
      
 void computeLocation() {
-    /*
-     * Set up Projection Transform
-     */
-     
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-.1, .1, -.1, .1, .1, 1000);
-    gluLookAt(0,0,0,0,0,-1,0,1,0);
-    glViewport(0, 0, 512, 512);
     
     /*
      * Set up Model Transform
      */
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glTranslatef(0.1,-1,-1.5);
-    glScalef(10,10,10);
+    gluLookAt(0.0,0.0,0.0,0.0,0.0,-1.0,0.0,1.0,0.0);
+    glTranslatef(0.1,-1.0,-1.5);
+    glScalef(10.0,10.0,10.0);
+
+    /*
+     * Set up Projection Transform
+     */
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-.1, .1, -.1, .1, .1, 1000);
+    glViewport(0, 0, 512, 512);
 }
     
-void init() { 
+void init() {
+    
     /*
      * Clear depth buffer, enable depth test
      * 
      */
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+     
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearDepth(1000);
+    glewInit();
     glEnable(GL_DEPTH_TEST);
     
     /*
@@ -50,24 +91,24 @@ void init() {
     computeLocation();
     
     /*
-     * Lighting Params
      * Enable Lighting
+     * 
      */
+    
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);
     
     /*
      * Set up light parameters.
-     * Set up Material Parameters
+     * 
      */
      
-    GLfloat Ia[] = { 0, 0, 0, 0 };
-    GLfloat light_pos[] = { 1, 1, 1, 0 }; //homogeneous vector with w=0
-    GLfloat la[] = {0,0,0,0}; //ambient
-    GLfloat ld[] = {1,1,1,0}; //diffuse
-    GLfloat ls[] = {0,0,0,0}; //sepcular
-    
-//    glClearColor(0, 0, 0, 0.0);   // Set window color to white.
+    GLfloat Ia[] = { .2, .2, .2, 1 };
+    GLfloat light_pos[] = { 1, 1, 1, 0 };
+    GLfloat la[] = {0,0,0}; //ambient
+    GLfloat ld[] = {1,1,1}; //diffuse
+    GLfloat ls[] = {0,0,0}; //sepcular
     
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, Ia);
     
@@ -75,12 +116,17 @@ void init() {
     glLightfv(GL_LIGHT0, GL_AMBIENT, la);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, ld);
     glLightfv(GL_LIGHT0, GL_SPECULAR,ls);
-    
-    GLfloat ka[] = { 1, 1, 1, 0};
-    GLfloat kd[] = { 1, 1, 1, 0};
-    GLfloat ks[] = { 0, 0, 0, 0};
+
+    /*
+     * Set up Material Parameters
+     * 
+     */
+
+    GLfloat ka[] = { 1, 1, 1}; //ambient
+    GLfloat kd[] = { 1, 1, 1}; //specular
+    GLfloat ks[] = { 0, 0, 0}; //diffuse
     GLfloat p = 0;
-    
+
     glMaterialfv(GL_FRONT, GL_AMBIENT, ka);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, kd);
     glMaterialfv(GL_FRONT, GL_SPECULAR, ks);
@@ -90,58 +136,60 @@ void init() {
     
 // Draw image.
 void draw() {
+    
+    //Do the Clears
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearDepth(1000);
+    glewInit(); //nobody said I had to put this here, but piazza said it fixes the segfault
+
+    //Start timer ever frame
+    start_timing();
+
+    //Do the draw
     load_mesh("../bunny.obj");
+    
+    float timeElapsed = stop_timing();
+    gTotalFrames++;
+    gTotalTimeElapsed += timeElapsed;
+    float fps = gTotalFrames / gTotalTimeElapsed;
+    char string[1024] = {0};
+    sprintf(string, "OpenGL Bunny: %0.2f FPS", fps);
+    glutSetWindowTitle(string);
+
+    //Reload the scene
+    glutPostRedisplay();
     glutSwapBuffers();
 }
-    
- // Arranges that the window will be redrawn roughly everyms.
-void idle() {
-    static int lastTime = 0;                // time of last redraw
-    int time = glutGet(GLUT_ELAPSED_TIME);  // current time
-    
-    if(lastTime == 0 || time >= lastTime + 40) {
-        lastTime = time;
-        glutPostRedisplay();
-    }
-}
-    
-// When window becomes visible, we want the window to
-// continuously repaint itself.
-void visible(int vis) {
-    glutIdleFunc(vis == GLUT_VISIBLE ? idle : NULL);
-}
  
- int main(int argc, char **argv) {
+int main(int argc, char **argv) {
+    //Initialize the GUI window
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGB);
+    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowPosition(50, 100);    // Set up display window.
     glutInitWindowSize(512, 512);
     glutCreateWindow("Bunny");
 
     init();
     glutDisplayFunc(draw);
-    glutVisibilityFunc(visible);
+    init_timer();
     glutMainLoop();
     return 0;
 }
  
 /*
  * Code for doing the mesh loading
+ * Should move this to another file, 
+ * but i probably wont
  */ 
  
-struct Vector3
-{
-	float			x, y, z;
-};
-
 struct Triangle
 {
-	unsigned int 	indices[3];
+    unsigned int indices[3];
 };
 
-std::vector<Vector3>	gPositions;
-std::vector<Vector3>	gNormals;
-std::vector<Triangle>	gTriangles;
+std::vector<Vector3> gPositions;
+std::vector<Vector3> gNormals;
+std::vector<Triangle> gTriangles;
 
 void tokenize(char* string, std::vector<std::string>& tokens, const char* delimiter)
 {
@@ -246,10 +294,10 @@ void load_mesh(std::string fileName)
     Vector3 n0, n1, n2;
     
     glBegin(GL_TRIANGLES);
-    for (unsigned int i = 0 ; i < gTriangles.size(); i++){
+    for ( int i = gTriangles.size()-1 ; i >= 0; i--){
         k0 = gTriangles[i].indices[0];
-		k1 = gTriangles[i].indices[1];
-		k2 = gTriangles[i].indices[2];
+        k1 = gTriangles[i].indices[1];
+        k2 = gTriangles[i].indices[2];
         
         v0 = gPositions[k0];
         v1 = gPositions[k1];
@@ -258,6 +306,18 @@ void load_mesh(std::string fileName)
         n0 = gNormals[k0];
         n1 = gNormals[k1];
         n2 = gNormals[k2]; 
+
+//        k2 = gTriangles[i].indices[0];
+//        k1 = gTriangles[i].indices[1];
+//        k0 = gTriangles[i].indices[2];
+//        
+//        v2 = gPositions[k0];
+//        v1 = gPositions[k1];
+//        v0 = gPositions[k2];
+//        
+//        n2 = gNormals[k0];
+//        n1 = gNormals[k1];
+//        n0 = gNormals[k2]; 
        
         glVertex3f(v0.x, v0.y, v0.z);
         glNormal3f(n0.x, n0.y, n0.z);
@@ -267,11 +327,17 @@ void load_mesh(std::string fileName)
 
         glVertex3f(v2.x, v2.y, v2.z);
         glNormal3f(n2.x, n2.y, n2.z);
+//        
+//        glVertex3f(v1.x, v1.y, v1.z);
+//        glNormal3f(n1.x, n1.y, n1.z);
+//        
+//        glVertex3f(v0.x, v0.y, v0.z);
+//        glNormal3f(n0.x, n0.y, n0.z);
     }
     glEnd();
     
 	fin.close();
 
-	printf("Loaded mesh from %s. (%lu vertices, %lu normals, %lu triangles)\n", fileName.c_str(), gPositions.size(), gNormals.size(), gTriangles.size());
-	printf("Mesh bounding box is: (%0.4f, %0.4f, %0.4f) to (%0.4f, %0.4f, %0.4f)\n", xmin, ymin, zmin, xmax, ymax, zmax);
+//	printf("Loaded mesh from %s. (%lu vertices, %lu normals, %lu triangles)\n", fileName.c_str(), gPositions.size(), gNormals.size(), gTriangles.size());
+//	printf("Mesh bounding box is: (%0.4f, %0.4f, %0.4f) to (%0.4f, %0.4f, %0.4f)\n", xmin, ymin, zmin, xmax, ymax, zmax);
 }
