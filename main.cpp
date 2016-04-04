@@ -14,7 +14,8 @@
 #include <fstream>
 #include <float.h>
 
-bool buffered_render = true;
+//decide whether to buffered render
+bool buffered_render;
 
 //For buffered render
 float *gNorms, *gVerts;
@@ -46,27 +47,34 @@ int face_index(const char* string);
 
 int main(int argc, char **argv) {
     
-    if (argc >= 1){
+    /*
+     * Initialize the GUI Window
+     */
 
-        /*
-         * Initialize the GUI Window
-         */
-
-        glutInit(&argc, argv);
-        glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-        glutInitWindowPosition(50, 100);
-        glutInitWindowSize(512, 512);
-        glutCreateWindow("Bunny");
-
-        init(argv[0]);
-
-        glutDisplayFunc(draw);
-        init_timer();
-        glutMainLoop();
-        return 0;
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+    glutInitWindowPosition(50, 100);
+    glutInitWindowSize(512, 512);
+    glutCreateWindow("Bunny");
+        
+    if (argc == 3){
+        //buffered render
+        buffered_render = true;
+        init(argv[1]);
+    } else if (argc == 2) {
+        //non-buffered render
+        buffered_render = false;
+        init(argv[1]);
     } else {
-        exit(0);
+        //bad args
+        std::cout << "Usage PA3 /path/to/mesh.obj [-buffered]" << std::endl;
+        exit(1);
     }
+    
+    glutDisplayFunc(draw);
+    init_timer();
+    glutMainLoop();
+    return 0;
 }
 
 void init(std::string path) {
@@ -82,72 +90,75 @@ void init(std::string path) {
      * Load the mesh into memory
      */
     
-    load_mesh("bunny.obj");
+    load_mesh(path);
+    
 
     /*
-     * Set up buffers. 
+     * Set up buffers IF command line args 
      * This magnificent trash can be fixed by looking at the code on:
      * http://docs.gl/gl3/glDrawElements
      *
      * Currently, there are gVerts, gNorms, and vertex_indices
      */
-    
-    // Step 1 : Create the VAO
-
-    GLuint vao;
-    GLuint vert_buff;
-    GLuint norm_buff;
-    GLuint eab;
-
-    glGenBuffers(1, &vert_buff);
-    glGenBuffers(1, &norm_buff);
-    
-    // Step 2 :  Bind the normal and vertex buffers
-    glBindBuffer(GL_ARRAY_BUFFER, vert_buff);
-    glBufferData(GL_ARRAY_BUFFER, 
-        sizeof(float)*3*num_verts, 
-        gVerts, 
-        GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ARRAY_BUFFER, norm_buff);
-    glBufferData(GL_ARRAY_BUFFER, 
-        sizeof(float)*3*num_verts, 
-        gNorms, 
-        GL_STATIC_DRAW);
-
-    // Setp 3 : Gen and Bind the VAO
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    // Step 4: Enable the vertex array buffers.
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-
-    // Step 5 : Set pointers.  
-    // We have to rebind so GL knows what we're talking about
-
-    glBindBuffer(GL_ARRAY_BUFFER, vert_buff);
-    glVertexPointer(3, GL_FLOAT, 0, 0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, norm_buff);
-    glNormalPointer(GL_FLOAT, 0, 0);
-
-    // Step 6 : Set up element array buffer
-
-    glGenBuffers(1, &eab);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-        sizeof(float)*num_verts, 
-        vertex_indices, 
-        GL_STATIC_DRAW);
-
-    glBindVertexArray(vao);
      
     if (buffered_render){
+    
+        // Step 1 : Create the VAO
+
+        GLuint vao;
+        GLuint vert_buff;
+        GLuint norm_buff;
+        GLuint eab;
+
+        glGenBuffers(1, &vert_buff);
+        glGenBuffers(1, &norm_buff);
+        
+        // Step 2 :  Bind the normal and vertex buffers
+        glBindBuffer(GL_ARRAY_BUFFER, vert_buff);
+        glBufferData(GL_ARRAY_BUFFER, 
+            sizeof(float)*3*num_verts, 
+            gVerts, 
+            GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ARRAY_BUFFER, norm_buff);
+        glBufferData(GL_ARRAY_BUFFER, 
+            sizeof(float)*3*num_verts, 
+            gNorms, 
+            GL_STATIC_DRAW);
+
+        // Setp 3 : Gen and Bind the VAO
+
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+
+        // Step 4: Enable the vertex array buffers.
+
         glEnableClientState(GL_VERTEX_ARRAY);
         glEnableClientState(GL_NORMAL_ARRAY);
+
+        // Step 5 : Set pointers.  
+        // We have to rebind so GL knows what we're talking about
+
+        glBindBuffer(GL_ARRAY_BUFFER, vert_buff);
+        glVertexPointer(3, GL_FLOAT, 0, 0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, norm_buff);
+        glNormalPointer(GL_FLOAT, 0, 0);
+
+        // Step 6 : Set up element array buffer
+
+        glGenBuffers(1, &eab);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
+            sizeof(float)*num_verts, 
+            vertex_indices, 
+            GL_STATIC_DRAW);
+
+        glBindVertexArray(vao);
+         
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_NORMAL_ARRAY);
+
     }
     
     /*
@@ -230,11 +241,11 @@ void drawRoom(){
 
         glBegin(GL_TRIANGLES);
         
-        for (int i = 0 ; i < gTriangles.size() ; i++ ){
+        for (unsigned int i = 0 ; i < gTriangles.size() ; i++ ){
 
-            int k0 = vertex_indices[3*i + 0];
-            int k1 = vertex_indices[3*i + 1];
-            int k2 = vertex_indices[3*i + 2];
+            k0 = vertex_indices[3*i + 0];
+            k1 = vertex_indices[3*i + 1];
+            k2 = vertex_indices[3*i + 2];
 
             v0 = gPositions[k0];
             v1 = gPositions[k1];
@@ -436,19 +447,19 @@ void load_mesh(std::string fileName)
      * There's probably a better way to do this.
      * 
      */
-    
+
     vertex_indices = new GLuint[gTriangles.size()*3];
     num_verts = gTriangles.size()*3;
     gNorms = new float[gTriangles.size()*9];
     gVerts = new float[gTriangles.size()*9];
     
-    for (int i = 0; i < gTriangles.size(); i++){
+    for (unsigned int i = 0; i < gTriangles.size(); i++){
         vertex_indices[3*i+0] = gTriangles[i].indices[0];
         vertex_indices[3*i+1] = gTriangles[i].indices[1];
         vertex_indices[3*i+2] = gTriangles[i].indices[2];
     }
     
-    for (int i = 0; i < gTriangles.size() * 3; i++){
+    for (unsigned int i = 0; i < gTriangles.size() * 3; i++){
         
         gNorms[3*i+0] = gNormals[i].x;
         gNorms[3*i+1] = gNormals[i].y;
