@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-Wall -O3 
-LINKER= -lGL -lglut -lGLU -lGLEW
+LINKER=-lGL -lglut -lGLU -lGLEW
 OUTFILE=PA3
 
 all:
