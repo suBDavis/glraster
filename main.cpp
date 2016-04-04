@@ -1,9 +1,10 @@
 #include <stdio.h>
+#include <iostream>
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
-#include <GL/glext.h>
+//#include <GL/glext.h>
 #include <math.h>
 
 //For the obj loader
@@ -13,6 +14,10 @@
 #include <queue>
 #include <fstream>
 #include <float.h>
+
+float* gNorms, *gVerts;
+int* all_verts, *all_indices;
+int num_verts;
 
 float gTotalTimeElapsed = 0;
 int gTotalFrames = 0;
@@ -74,15 +79,20 @@ void computeLocation() {
     
 void init() {
     
+    glewInit();
+    
+    //load the mesh into memory
+    load_mesh("../bunny.obj");
+    
     /*
      * Clear depth buffer, enable depth test
      * 
      */
      
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearDepth(1000);
-    glewInit();
-    glEnable(GL_DEPTH_TEST);
+//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    glClearDepth(1000);
+//    glewInit();
+//    glEnable(GL_DEPTH_TEST);
     
     /*
      * Set up Transform pipeline
@@ -95,9 +105,9 @@ void init() {
      * 
      */
     
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_NORMALIZE);
+//    glEnable(GL_LIGHTING);
+//    glEnable(GL_LIGHT0);
+//    glEnable(GL_NORMALIZE);
     
     /*
      * Set up light parameters.
@@ -132,21 +142,47 @@ void init() {
     glMaterialfv(GL_FRONT, GL_SPECULAR, ks);
     glMaterialf(GL_FRONT, GL_SHININESS, p);
     
-}
+    //glShadeModel(GL_FLAT);
     
+    glewInit();
+    
+}
+void drawRoom(){
+    
+//    glBegin(GL_TRIANGLES);
+//    for (int i = 0 ; i < num_verts ; i++ ){
+//        int k0 = 3*i + 0;
+//        int k1 = 3*i + 1;
+//        int k2 = 3*i + 2;
+//        glNormal3f(gNorms[k0], gNorms[k1], gNorms[k2]);
+//        glVertex3f(gVerts[k0], gVerts[k1], gVerts[k2]);
+//        
+//        //std::cout << gNorms[k0] << " " << gNorms[k1] << " " << std::endl;
+//    }
+//    glEnd();
+    
+    glDrawElements(GL_TRIANGLES , 9 , GL_UNSIGNED_BYTE , all_indices);
+
+}
+   
 // Draw image.
 void draw() {
     
     //Do the Clears
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearDepth(1000);
-    glewInit(); //nobody said I had to put this here, but piazza said it fixes the segfault
 
+    //do the enables
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);
+    
     //Start timer ever frame
     start_timing();
 
     //Do the draw
-    load_mesh("../bunny.obj");
+    drawRoom();
     
     float timeElapsed = stop_timing();
     gTotalFrames++;
@@ -293,50 +329,90 @@ void load_mesh(std::string fileName)
     Vector3 v0, v1, v2;
     Vector3 n0, n1, n2;
     
-    glBegin(GL_TRIANGLES);
-    for ( int i = gTriangles.size()-1 ; i >= 0; i--){
-        k0 = gTriangles[i].indices[0];
-        k1 = gTriangles[i].indices[1];
-        k2 = gTriangles[i].indices[2];
-        
-        v0 = gPositions[k0];
-        v1 = gPositions[k1];
-        v2 = gPositions[k2];
-        
-        n0 = gNormals[k0];
-        n1 = gNormals[k1];
-        n2 = gNormals[k2]; 
-
-//        k2 = gTriangles[i].indices[0];
+//    glBegin(GL_TRIANGLES);
+//    for ( int i = gTriangles.size()-1 ; i >= 0; i--){
+//        k0 = gTriangles[i].indices[0];
 //        k1 = gTriangles[i].indices[1];
-//        k0 = gTriangles[i].indices[2];
+//        k2 = gTriangles[i].indices[2];
 //        
-//        v2 = gPositions[k0];
+//        v0 = gPositions[k0];
 //        v1 = gPositions[k1];
-//        v0 = gPositions[k2];
+//        v2 = gPositions[k2];
 //        
-//        n2 = gNormals[k0];
+//        n0 = gNormals[k0];
 //        n1 = gNormals[k1];
-//        n0 = gNormals[k2]; 
-       
-        glVertex3f(v0.x, v0.y, v0.z);
-        glNormal3f(n0.x, n0.y, n0.z);
-        
-        glVertex3f(v1.x, v1.y, v1.z);
-        glNormal3f(n1.x, n1.y, n1.z);
-
-        glVertex3f(v2.x, v2.y, v2.z);
-        glNormal3f(n2.x, n2.y, n2.z);
+//        n2 = gNormals[k2]; 
 //        
-//        glVertex3f(v1.x, v1.y, v1.z);
-//        glNormal3f(n1.x, n1.y, n1.z);
-//        
-//        glVertex3f(v0.x, v0.y, v0.z);
 //        glNormal3f(n0.x, n0.y, n0.z);
-    }
-    glEnd();
+//        glVertex3f(v0.x, v0.y, v0.z);
+//        
+//        glNormal3f(n1.x, n1.y, n1.z);
+//        glVertex3f(v1.x, v1.y, v1.z);
+//        
+//        glNormal3f(n2.x, n2.y, n2.z);
+//        glVertex3f(v2.x, v2.y, v2.z);
+//    }
+//    glEnd();
     
-	fin.close();
+    /*
+     * Create the Index pointer thingy
+     * 
+     */
+    
+    all_verts = new int[gTriangles.size()*3];
+    num_verts = gTriangles.size()*3;
+    
+    for (int i = 0; i < gTriangles.size(); i++){
+        all_verts[3*i+0] = gTriangles[i].indices[0];
+        all_verts[3*i+1] = gTriangles[i].indices[1];
+        all_verts[3*i+2] = gTriangles[i].indices[2];
+    }
+    
+    all_indices = new int[gTriangles.size() * 9];
+    gNorms = new float[gTriangles.size()*9];
+    gVerts = new float[gTriangles.size()*9];
+    
+    for (int i = 0; i < gTriangles.size() * 3; i++){
+        all_indices[3*i+0] = 3 * all_verts[i] + 0;
+        all_indices[3*i+1] = 3 * all_verts[i] + 1;
+        all_indices[3*i+2] = 3 * all_verts[i] + 2;
+        
+        gNorms[3*i+0] = gNormals[all_verts[i]].x;
+        gNorms[3*i+1] = gNormals[all_verts[i]].y;
+        gNorms[3*i+2] = gNormals[all_verts[i]].z;
+        
+        gVerts[3*i+0] = gPositions[all_verts[i]].x;
+        gVerts[3*i+1] = gPositions[all_verts[i]].y;
+        gVerts[3*i+2] = gPositions[all_verts[i]].z;
+    }
+    
+    /*
+     * Create the normal buffer
+     * 
+     */
+    
+    GLuint norm_buffer;
+    glGenBuffers(1, &norm_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, norm_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*gTriangles.size()*9, gNorms, GL_STATIC_DRAW);
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glNormalPointer(GL_FLOAT, 0, &norm_buffer);
+    
+    /*
+     * Create the vertex buffer
+     * 
+     */
+     
+    GLuint vert_buffer;
+    glGenBuffers(1, &vert_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vert_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*gTriangles.size()*9, gVerts, GL_STATIC_DRAW);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, &vert_buffer);
+    
+    fin.close();
 
 //	printf("Loaded mesh from %s. (%lu vertices, %lu normals, %lu triangles)\n", fileName.c_str(), gPositions.size(), gNormals.size(), gTriangles.size());
 //	printf("Mesh bounding box is: (%0.4f, %0.4f, %0.4f) to (%0.4f, %0.4f, %0.4f)\n", xmin, ymin, zmin, xmax, ymax, zmax);
