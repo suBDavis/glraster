@@ -1,2 +1,0 @@
-# glraster
-OpenGL Rasterizer
