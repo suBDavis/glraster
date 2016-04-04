@@ -4,10 +4,9 @@
 #include <GL/glut.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
-//#include <GL/glext.h>
 #include <math.h>
 
-//For the obj loader
+//Just for the OBJ loader
 #include <string.h>
 #include <string>
 #include <vector>
@@ -15,99 +14,115 @@
 #include <fstream>
 #include <float.h>
 
-float* gNorms, *gVerts;
-int* all_verts, *all_indices;
+float *gNorms, *gVerts;
+int *all_verts, *all_indices;
 int num_verts;
-
 float gTotalTimeElapsed = 0;
 int gTotalFrames = 0;
 GLuint gTimer;
+struct Triangle {unsigned int indices[3];};
+struct Vector3 {float x, y, z;};
+std::vector<Vector3> gPositions;
+std::vector<Vector3> gNormals;
+std::vector<Triangle> gTriangles;
 
 void load_mesh(std::string fileName);
+void init_timer();
+void start_timing();
+float stop_timing();
+void transformSetup();
+void init(std::string path);
+void drawRoom();
+void draw();
+void tokenize(char* string, std::vector<std::string>& tokens, const char* delimiter);
+int face_index(const char* string);
 
-struct Vector3
-{
-	float x, y, z;
-};
+int main(int argc, char **argv) {
+    if (argc >= 2){
 
-void init_timer()
-{
-    glGenQueries(1, &gTimer);
+        /*
+         * Initialize the GUI Window
+         */
+
+        glutInit(&argc, argv);
+        glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+        glutInitWindowPosition(50, 100);
+        glutInitWindowSize(512, 512);
+        glutCreateWindow("Bunny");
+
+        init(argv[1]);
+
+        glutDisplayFunc(draw);
+        init_timer();
+        glutMainLoop();
+        return 0;
+    } else {
+        exit(0);
+    }
 }
 
-void start_timing()
-{
-    glBeginQuery(GL_TIME_ELAPSED, gTimer);
-}
-
-float stop_timing()
-{
-    glEndQuery(GL_TIME_ELAPSED);
-
-    GLint available = GL_FALSE;
-    while (available == GL_FALSE)
-        glGetQueryObjectiv(gTimer, GL_QUERY_RESULT_AVAILABLE, &available);
-
-    GLint result;
-    glGetQueryObjectiv(gTimer, GL_QUERY_RESULT, &result);
-
-    float timeElapsed = result / (1000.0f * 1000.0f * 1000.0f);
-    return timeElapsed;
-}
-     
-void computeLocation() {
-    
-    /*
-     * Set up Model Transform
-     */
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0.0,0.0,0.0,0.0,0.0,-1.0,0.0,1.0,0.0);
-    glTranslatef(0.1,-1.0,-1.5);
-    glScalef(10.0,10.0,10.0);
+void init(std::string path) {
 
     /*
-     * Set up Projection Transform
+     * Nobody really knows what this does.
      */
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-.1, .1, -.1, .1, .1, 1000);
-    glViewport(0, 0, 512, 512);
-}
-    
-void init() {
     
     glewInit();
     
-    //load the mesh into memory
-    load_mesh("../bunny.obj");
+    /* 
+     * Load the mesh into memory
+     */
+    
+    load_mesh("bunny.obj");
+
+    /*
+     * Set up buffers. 
+     * This magnificent trash can be fixed by looking at the code on:
+     * http://docs.gl/gl3/glDrawElements
+     *
+     */
+
+    /*
+     * Create the normal buffer
+     * 
+     */
+    
+    // GLuint norm_buffer;
+    // glGenBuffers(1, &norm_buffer);
+    // glBindBuffer(GL_ARRAY_BUFFER, norm_buffer);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(float)*num_verts*3, gNorms, GL_STATIC_DRAW);
+
+    // glEnableClientState(GL_NORMAL_ARRAY);
+    // glNormalPointer(GL_FLOAT, 0, gNorms);
     
     /*
-     * Clear depth buffer, enable depth test
+     * Create the vertex buffer
      * 
      */
      
-//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//    glClearDepth(1000);
-//    glewInit();
-//    glEnable(GL_DEPTH_TEST);
+    // GLuint vert_buffer;
+    // glGenBuffers(1, &vert_buffer);
+    // glBindBuffer(GL_ARRAY_BUFFER, vert_buffer);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(float)*num_verts*3, gVerts, GL_STATIC_DRAW);
+
+    // glEnableClientState(GL_VERTEX_ARRAY);
+    // glVertexPointer(3, GL_FLOAT, 0, gVerts);
+
+    /*
+     * create the index buffer
+     */
+
+    // GLuint indices_buffer;
+    // glGenBuffers(1, &indices_buffer);
+    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer);
+    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(GLuint)*num_verts*3, NULL, GL_STATIC_DRAW);
     
     /*
      * Set up Transform pipeline
      * 
      */ 
-    computeLocation();
-    
-    /*
-     * Enable Lighting
-     * 
-     */
-    
-//    glEnable(GL_LIGHTING);
-//    glEnable(GL_LIGHT0);
-//    glEnable(GL_NORMALIZE);
+
+    transformSetup();
     
     /*
      * Set up light parameters.
@@ -142,33 +157,68 @@ void init() {
     glMaterialfv(GL_FRONT, GL_SPECULAR, ks);
     glMaterialf(GL_FRONT, GL_SHININESS, p);
     
-    //glShadeModel(GL_FLAT);
-    
-    glewInit();
+    //glShadeModel(GL_FLAT); //Uncomment for flat shading
     
 }
+
+void transformSetup() {
+    
+    /*
+     * Set up Model Transform
+     */
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(0.0,0.0,0.0,0.0,0.0,-1.0,0.0,1.0,0.0);
+    glTranslatef(0.1,-1.0,-1.5);
+    glScalef(10.0,10.0,10.0);
+
+    /*
+     * Set up Projection Transform
+     */
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-.1, .1, -.1, .1, .1, 1000);
+    glViewport(0, 0, 512, 512);
+}
+
 void drawRoom(){
+
+    /*
+     * Code for doing the regular implicit declaration of object coordinates
+     */
     
-//    glBegin(GL_TRIANGLES);
-//    for (int i = 0 ; i < num_verts ; i++ ){
-//        int k0 = 3*i + 0;
-//        int k1 = 3*i + 1;
-//        int k2 = 3*i + 2;
-//        glNormal3f(gNorms[k0], gNorms[k1], gNorms[k2]);
-//        glVertex3f(gVerts[k0], gVerts[k1], gVerts[k2]);
-//        
-//        //std::cout << gNorms[k0] << " " << gNorms[k1] << " " << std::endl;
-//    }
-//    glEnd();
+    glBegin(GL_TRIANGLES);
+    for (int i = 0 ; i < num_verts ; i++ ){
+        int k0 = 3*i + 0;
+        int k1 = 3*i + 1;
+        int k2 = 3*i + 2;
+        glNormal3f(gNorms[k0], gNorms[k1], gNorms[k2]);
+        glVertex3f(gVerts[k0], gVerts[k1], gVerts[k2]);
+
+        //std::cout << gNorms[k0] << " " << gNorms[k1] << " " << std::endl;
+    }
+    glEnd();
     
-    glDrawElements(GL_TRIANGLES , 9 , GL_UNSIGNED_BYTE , all_indices);
+    /*
+     * Code for doing glDrawElements
+     */
+
+    // Step 1
+    // glBindBuffer(GL_ARRAY_BUFFER)
+    // glDrawElements(GL_TRIANGLES , num_verts/3 , GL_UNSIGNED_INT , all_indices);
 
 }
-   
-// Draw image.
+
 void draw() {
     
-    //Do the Clears
+    /*
+     * Clear depth buffer
+     * enable depth test, lighting, light0, normailze
+     * 
+     */
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearDepth(1000);
 
@@ -196,20 +246,30 @@ void draw() {
     glutPostRedisplay();
     glutSwapBuffers();
 }
- 
-int main(int argc, char **argv) {
-    //Initialize the GUI window
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-    glutInitWindowPosition(50, 100);    // Set up display window.
-    glutInitWindowSize(512, 512);
-    glutCreateWindow("Bunny");
 
-    init();
-    glutDisplayFunc(draw);
-    init_timer();
-    glutMainLoop();
-    return 0;
+void init_timer()
+{
+    glGenQueries(1, &gTimer);
+}
+
+void start_timing()
+{
+    glBeginQuery(GL_TIME_ELAPSED, gTimer);
+}
+
+float stop_timing()
+{
+    glEndQuery(GL_TIME_ELAPSED);
+
+    GLint available = GL_FALSE;
+    while (available == GL_FALSE)
+        glGetQueryObjectiv(gTimer, GL_QUERY_RESULT_AVAILABLE, &available);
+
+    GLint result;
+    glGetQueryObjectiv(gTimer, GL_QUERY_RESULT, &result);
+
+    float timeElapsed = result / (1000.0f * 1000.0f * 1000.0f);
+    return timeElapsed;
 }
  
 /*
@@ -217,15 +277,6 @@ int main(int argc, char **argv) {
  * Should move this to another file, 
  * but i probably wont
  */ 
- 
-struct Triangle
-{
-    unsigned int indices[3];
-};
-
-std::vector<Vector3> gPositions;
-std::vector<Vector3> gNormals;
-std::vector<Triangle> gTriangles;
 
 void tokenize(char* string, std::vector<std::string>& tokens, const char* delimiter)
 {
@@ -356,6 +407,7 @@ void load_mesh(std::string fileName)
     
     /*
      * Create the Index pointer thingy
+     * There's probably a better way to do this.
      * 
      */
     
@@ -385,32 +437,6 @@ void load_mesh(std::string fileName)
         gVerts[3*i+1] = gPositions[all_verts[i]].y;
         gVerts[3*i+2] = gPositions[all_verts[i]].z;
     }
-    
-    /*
-     * Create the normal buffer
-     * 
-     */
-    
-    GLuint norm_buffer;
-    glGenBuffers(1, &norm_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, norm_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*gTriangles.size()*9, gNorms, GL_STATIC_DRAW);
-
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glNormalPointer(GL_FLOAT, 0, &norm_buffer);
-    
-    /*
-     * Create the vertex buffer
-     * 
-     */
-     
-    GLuint vert_buffer;
-    glGenBuffers(1, &vert_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vert_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*gTriangles.size()*9, gVerts, GL_STATIC_DRAW);
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, &vert_buffer);
     
     fin.close();
 
