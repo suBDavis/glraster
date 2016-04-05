@@ -119,13 +119,13 @@ void init(std::string path) {
         // Step 2 :  Bind the normal and vertex buffers
         glBindBuffer(GL_ARRAY_BUFFER, vert_buff);
         glBufferData(GL_ARRAY_BUFFER, 
-            sizeof(float)*3*num_verts, 
+            sizeof(float)*3*gPositions.size(), 
             gVerts, 
             GL_STATIC_DRAW);
 
         glBindBuffer(GL_ARRAY_BUFFER, norm_buff);
         glBufferData(GL_ARRAY_BUFFER, 
-            sizeof(float)*3*num_verts, 
+            sizeof(float)*3*gNormals.size(), 
             gNorms, 
             GL_STATIC_DRAW);
 
@@ -153,7 +153,7 @@ void init(std::string path) {
         glGenBuffers(1, &eab);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-            sizeof(float)*num_verts, 
+            sizeof(GLuint)*num_verts, 
             vertex_indices, 
             GL_STATIC_DRAW);
 
@@ -446,33 +446,29 @@ void load_mesh(std::string fileName)
     }
     
     /*
-     * Create the Index pointer thingy
-     * There's probably a better way to do this.
+     * Pack vertexes into the
      * 
      */
 
-    vertex_indices = new GLuint[gTriangles.size()*3];
     num_verts = gTriangles.size()*3;
-    gNorms = new float[gTriangles.size()*9];
-    gVerts = new float[gTriangles.size()*9];
-    
+    vertex_indices = new GLuint[num_verts];
+    gNorms = new float[gNormals.size()*3];
+    gVerts = new float[gPositions.size()*3];
+
     for (unsigned int i = 0; i < gTriangles.size(); i++){
-        
         vertex_indices[3*i+0] = gTriangles[i].indices[0];
         vertex_indices[3*i+1] = gTriangles[i].indices[1];
         vertex_indices[3*i+2] = gTriangles[i].indices[2];
-    
     }
-    
-    for (unsigned int i = 0; i < gTriangles.size()*3; i++){
-        
+    for (unsigned int i = 0; i < gNormals.size(); i++){
         gNorms[3*i+0] = gNormals[i].x;
         gNorms[3*i+1] = gNormals[i].y;
         gNorms[3*i+2] = gNormals[i].z;
-        
+    }
+    for (unsigned int i = 0; i < gPositions.size(); i++){
         gVerts[3*i+0] = gPositions[i].x;
         gVerts[3*i+1] = gPositions[i].y;
-        gVerts[3*i+2] = gPositions[i].z;
+        gVerts[3*i+2] = gPositions[i].z;  
     }
     
     fin.close();
